@@ -1,0 +1,50 @@
+library(doMC)#
+library(fields)#
+library(gdistance)#
+library(geometry)#
+library(ks)#
+library(lubridate)#
+library(maptools)#
+library(raster)#
+library(RColorBrewer)#
+library(rgdal)#
+library(rgeos)#
+library(sampSurf)#
+library(seraphim)#
+library(sf)#
+library(sp)#
+library(spatstat)#
+#
+savingPlots = TRUE#
+showingPlots = FALSE
+if (!file.exists("Outbreak_results/One_outbreak_ID.csv")) # code used to generate a fictive dataset from RRW simulations:#
+	{#
+		data0 = read.csv("RRW2_simu.csv", head=T) # to load the simulated spatially-annotated tree file#
+		data0 = data0[which(!data0[,"node2"]%in%data0[,"node1"]),] # to only keep the tip nodes of the tree#
+		data1 = data0[,c("endLon","endLat","endYear")]; colnames(data1) = c("longitude","latitude","collection_date")#
+		data1 = data1[order(data1[,"collection_date"]),]; startYear = min(data1[,"collection_date"])#
+		days = matrix(nrow=dim(data1)[1], ncol=1); colnames(days) = "days"#
+		for (i in 1:dim(data1)[1]) days[i,1] = round((data1[i,"collection_date"]-startYear)*365.25)#
+		data1 = cbind(data1, days); maxDays = max(data1[,"days"])#
+		write.csv(data1, "Outbreak_results/One_outbreak_ID.csv", row.names=F, quote=F)#
+	}
+datasets = list.files("Outbreak_results")#
+datasets = gsub("\\.csv","",datasets[grepl("\\.csv",datasets)])#
+datasets = datasets[which(datasets!="One_outbreak_ID")]#
+# datasets = datasets[which(datasets=="One_outbreak_ID")]#
+for (h in 1:length(datasets))#
+	{#
+		dir.create(file.path(paste0("Outbreak_results/",datasets[h],"_dir")), showWarnings=F)#
+	}
+template = crop(raster("Template_rast.tif"), extent(-30,140,-28,50))
+cellSurfaces = crop(raster("WordPop_1000m/WorldPop_1km.tif"), extent(-30,140,-28,50))
+cellSurfaces
+writeRaster(cellSurfaces, "TEMP.tif")
+plot(cellSurfaces)
+raster("WorldPop1km.tif")
+cellSurfaces = raster("WorldPop1km.tif")
+cell_size = sqrt(cellSurfaces) # cell heights (or widths) in meters
+popDensity_008 = crop(raster("Human_popD.tif"), extent(-30,140,-28,50))
+popDensity_008 = crop(raster("Human_popD.tif"), extent(-30,140,-28,50))
+writeRaster(popDensity_008, "TEMP.tif")
+writeRaster(popDensity_008, "TEMP.tif")

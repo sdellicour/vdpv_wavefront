@@ -40,15 +40,19 @@ for (h in 1:length(datasets))
 	}
 
 template = crop(raster("Template_rast.tif"), extent(-30,140,-28,50))
-cellSurfaces = crop(raster("WordPop_1000m/WorldPop_1km.tif"), extent(-30,140,-28,50))
+cellSurfaces = raster("WorldPop1km.tif")
 cell_size = sqrt(cellSurfaces) # cell heights (or widths) in meters
 popDensity_008 = crop(raster("Human_popD.tif"), extent(-30,140,-28,50))
+	# NOTE: the "Human_popD.tif" file is too heavy for GitHub and is available on request
+	# or can be retrieved from the WorldPop website (https://hub.worldpop.org/geodata/summary?id=29692)
 popDensity_008_log = popDensity_008; popDensity_008_log[] = log(popDensity_008_log[]+1)
 popDensity_08 = raster::aggregate(popDensity_008, 10, fun=sum)
 popDensity_08_log = popDensity_08; popDensity_08_log[] = log(popDensity_08_log[]+1)
 popDensity_5 = raster::aggregate(popDensity_008, 50, fun=sum)
 popDensity_5_log = popDensity_5; popDensity_5_log[] = log(popDensity_5_log[]+1)
 friction_008 = crop(raster("Friction_2015.tif"), extent(-30,140,-28,50))
+	# NOTE: the "Friction_2015.tif" file is too heavy for GitHub and is available on request
+	# or can be retrieved from the publication of Weiss et al. (2018, Nature)
 friction_008[is.na(popDensity_008[])] = NA
 friction_08 = raster::aggregate(friction_008, 10, fun=mean)
 friction_5 = raster::aggregate(friction_008, 50, fun=mean)
@@ -57,39 +61,6 @@ international_polygons = shapefile("NaturalEarth_shp/Admin_0_country_borders.shp
 international_polygons = crop(international_polygons, extent(template))
 international_borders = shapefile("NaturalEarth_shp/Admin_0_boundary_lines.shp")
 international_borders = crop(international_borders, extent(template))
-if (!file.exists("Template_Afri.tif"))
-	{
-		template@crs = popDensity_008@crs
-		template_mod = flip(flip(t(template), direction="x"), direction="y")
-		crs_metricSystem = "+proj=aea +lat_1=20 +lat_2=-23 +lat_0=0 +lon_0=25 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
-			# Africa Albers Equal Area Conic projection (AAEAC); https://spatialreference.org/ref/esri/africa-albers-equal-area-conic/
-		template_AAEAC = projectRaster(template_mod, crs=crs_metricSystem) # st_crs("ESRI:102022")
-		writeRaster(template_AAEAC, "Template_Afri.tif", overwrite=T)
-		if (showingPlots)
-			{
-				data1 = read.csv(paste0("Outbreak_results/",datasets[1],".csv"), head=T)
-				data1_WGS84 = data.frame(lon=as.numeric(data1[,1]), lat=as.numeric(data1[,2]))
-				coordinates(data1_WGS84) = c("lon", "lat"); proj4string(data1_WGS84) = CRS("+init=epsg:4326")
-				data1_AAEAC = spTransform(data1_WGS84, crs_metricSystem)
-				plot(template_AAEAC); points(data1_AAEAC)
-			}
-	}
-if (!file.exists("Template_Asia.tif"))
-	{
-		template@crs = popDensity_008@crs
-		crs_Behrmann = "+proj=cea +lon_0=0 +lat_ts=30 +x_0=0 +y_0=0 +datum=WGS84 +ellps=WGS84 +units=m +no_defs"
-			# world Behrmann projection (https://gis.stackexchange.com/questions/138287/what-is-the-proj4-for-world-behrmann-54017)
-		template_Behrmann = projectRaster(template, crs=crs_Behrmann)
-		writeRaster(template_Behrmann, "Template_Asia.tif", overwrite=T)
-		if (showingPlots)
-			{
-				data1 = read.csv(paste0("Outbreak_results/",datasets[1],".csv"), head=T)
-				data1_WGS84 = data.frame(lon=as.numeric(data1[,1]), lat=as.numeric(data1[,2]))
-				coordinates(data1_WGS84) = c("lon", "lat"); proj4string(data1_WGS84) = CRS("+init=epsg:4326")
-				data1_Behrmann = spTransform(data1_WGS84, crs_Behrmann)
-				plot(template_Behrmann); points(data1_Behrmann)
-			}
-	}
 
 # 1. Subsetting the data based on kernel densties
 
