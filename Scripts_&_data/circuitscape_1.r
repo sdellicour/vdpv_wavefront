@@ -1,4 +1,4 @@
-circuitscapeFct = function(envVariable, envVariableName, resistance=TRUE, avgResistance=TRUE, fourCells=FALSE, fromCoor, toCoor, OS="Unix", prefix="", ID="", nberOfCores_CS=1)	{
+circuitscape_1 = function(envVariable, envVariableName, resistance=TRUE, avgResistance=TRUE, fourCells=FALSE, fromCoor, toCoor, OS="Unix", prefix="", ID="", nberOfCores_CS=1)	{
 	
 	mat = matrix(nrow=dim(as.matrix(fromCoor))[1], ncol=1)
 	folder = paste(prefix,"_",ID,sep="")

@@ -32,17 +32,17 @@ if (!file.exists("Outbreak_results/One_outbreak_ID.csv")) # code used to generat
 
 datasets = list.files("Outbreak_results")
 datasets = gsub("\\.csv","",datasets[grepl("\\.csv",datasets)])
-datasets = datasets[which(datasets!="One_outbreak_ID")]
-# datasets = datasets[which(datasets=="One_outbreak_ID")]
 for (h in 1:length(datasets))
 	{
 		dir.create(file.path(paste0("Outbreak_results/",datasets[h],"_dir")), showWarnings=F)
 	}
 
-template = crop(raster("Template_rast.tif"), extent(-30,140,-28,50))
-cellSurfaces = raster("WorldPop1km.tif")
+extent1 = extent(-30,140,-28,50); extent_choice = 1
+extent2 = extent(-20,35,-7,38); extent_choice = 2
+template = crop(raster("Template_rast.tif"), extent2)
+cellSurfaces = crop(raster("WordPop_1000m/WorldPop_1km.tif"), extent2)
 cell_size = sqrt(cellSurfaces) # cell heights (or widths) in meters
-popDensity_008 = crop(raster("Human_popD.tif"), extent(-30,140,-28,50))
+popDensity_008 = crop(raster("Human_popD.tif"), extent2)
 	# NOTE: the "Human_popD.tif" file is too heavy for GitHub and is available on request
 	# or can be retrieved from the WorldPop website (https://hub.worldpop.org/geodata/summary?id=29692)
 popDensity_008_log = popDensity_008; popDensity_008_log[] = log(popDensity_008_log[]+1)
@@ -50,10 +50,11 @@ popDensity_08 = raster::aggregate(popDensity_008, 10, fun=sum)
 popDensity_08_log = popDensity_08; popDensity_08_log[] = log(popDensity_08_log[]+1)
 popDensity_5 = raster::aggregate(popDensity_008, 50, fun=sum)
 popDensity_5_log = popDensity_5; popDensity_5_log[] = log(popDensity_5_log[]+1)
-friction_008 = crop(raster("Friction_2015.tif"), extent(-30,140,-28,50))
+friction_008 = crop(raster("Friction_2015.tif"), extent2)
 	# NOTE: the "Friction_2015.tif" file is too heavy for GitHub and is available on request
 	# or can be retrieved from the publication of Weiss et al. (2018, Nature)
 friction_008[is.na(popDensity_008[])] = NA
+friction_008_log = friction_008; friction_008_log[] = log(friction_008_log[])
 friction_08 = raster::aggregate(friction_008, 10, fun=mean)
 friction_5 = raster::aggregate(friction_008, 50, fun=mean)
 polyExtent = as(extent(xmin(template), xmax(template), ymin(template), ymax(template)), "SpatialPolygons")  
@@ -184,7 +185,7 @@ for (h in 1:length(datasets))
 
 for (h in 1:length(datasets))
 	{
-		template = crop(raster("Template_rast.tif"), extent(-30,140,-28,50))
+		template = crop(raster("Template_rast.tif"), extent2)
 		crs_AAEAC = "+proj=aea +lat_1=20 +lat_2=-23 +lat_0=0 +lon_0=25 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs"
 			# Africa Albers Equal Area Conic projection (AAEAC); https://spatialreference.org/ref/esri/africa-albers-equal-area-conic/
 		crs_Behrmann = "+proj=cea +lon_0=0 +lat_ts=30 +x_0=0 +y_0=0 +datum=WGS84 +ellps=WGS84 +units=m +no_defs"
@@ -234,15 +235,15 @@ for (h in 1:length(datasets))
 		rast2 = mask(rast1, sps)
 		mask = raster::resample(rast2, template_proj)
 		
-				# 2.1.2. Interpolation of first time of invasion
+			# 2.1.2. Interpolation of first time of invasion
 		
 		tps_model = Tps(x=data2[,c("longitude","latitude")], Y=data2[,"days"])
 		tps = interpolate(template_proj, tps_model)
 		tps_mask = crop(mask(tps, mask), extent(template_proj))
 		
-				# 2.1.3. Estimating the friction map
+			# 2.1.3. Estimating the friction map
 		
-					# 2.1.3.1. Measuring the local slope/friction using a 3x3 moving windows filter
+				# 2.1.3.1. Measuring the local slope/friction using a 3x3 moving windows filter
 		
 		raster_resolution = mean(c(res(tps_mask)[1],res(tps_mask)[2]))
 		f = matrix(1/raster_resolution, nrow=3, ncol=3)
@@ -253,19 +254,16 @@ for (h in 1:length(datasets))
 			}
 		friction = focal(tps_mask, w=matrix(1,nrow=3,ncol=3), fun=fun, pad=T, padValue=NA, na.rm=F)
 		
-					# 2.1.3.2. Smoothing the resulting friction surface using an average 11x11 cell filter
+				# 2.1.3.2. Smoothing the resulting friction surface using an average 11x11 cell filter
 		
 		myAvSize = 11
 		friction_sd10 = focal(friction, w=matrix(1/(myAvSize^2),nrow=myAvSize,ncol=myAvSize), pad=T, padValue=NA, na.rm=F)
 		
-				# 2.1.4. Estimating the spread rate
+			# 2.1.4. Estimating the spread rate
 		
 		spreadRate_sd10 = ((1/(friction_sd10))/1000)*7
 		meanV = mean(spreadRate_sd10[],na.rm=T)
 		cat("\tMean wavefront velocity for ",datasets[h]," = ",meanV," km/week\n",sep="")
-						# Mean wavefront velocity for AFP_NIE_SOS_7 = 18.38376 km/week
-						# Mean wavefront velocity for AFP_all_NIE_JIS = 22.97064 km/week
-						# Mean wavefront velocity for One_outbreak_ID = 3.063116 km/week
 
 		# 2.2. Plotting the wavefront velocities
 
@@ -291,15 +289,15 @@ for (h in 1:length(datasets))
 		rast2 = mask(rast1, sps)
 		mask = raster::resample(rast2, template)
 		
-				# 2.2.2. Interpolation of first time of invasion
+			# 2.2.2. Interpolation of first time of invasion
 		
 		tps_model = Tps(x=data2[,c("longitude","latitude")], Y=data2[,"days"])
 		tps = interpolate(template, tps_model)
 		tps_mask = crop(mask(tps, mask), extent(template))
 		
-				# 2.2.3. Estimating the friction map
+			# 2.2.3. Estimating the friction map
 		
-					# 2.2.3.1. Measuring the local slope/friction using a 3x3 moving windows filter
+				# 2.2.3.1. Measuring the local slope/friction using a 3x3 moving windows filter
 		
 		raster_resolution = mean(c(res(tps_mask)[1],res(tps_mask)[2]))
 		f = matrix(1/raster_resolution, nrow=3, ncol=3)
@@ -310,12 +308,12 @@ for (h in 1:length(datasets))
 			}
 		friction = focal(tps_mask, w=matrix(1,nrow=3,ncol=3), fun=fun, pad=T, padValue=NA, na.rm=F)
 		
-					# 2.2.3.2. Smoothing the resulting friction surface using an average 11x11 cell filter
+				# 2.2.3.2. Smoothing the resulting friction surface using an average 11x11 cell filter
 		
 		myAvSize = 11
 		friction_sd10 = focal(friction, w=matrix(1/(myAvSize^2),nrow=myAvSize,ncol=myAvSize), pad=T, padValue=NA, na.rm=F)
 				
-				# 2.2.4. Plotting the resulting rasters
+			# 2.2.4. Plotting the resulting rasters
 		
 		if (savingPlots == TRUE)
 			{
@@ -326,73 +324,140 @@ for (h in 1:length(datasets))
 				friction_sd10_cropped = friction_sd10; friction_sd10_cropped[is.na(template[])] = NA
 				spreadRate_sd10_cropped = spreadRate_sd10
 				spreadRate_sd10_cropped[is.na(template[])] = NA
+				friction_sd10_cropped_log = friction_sd10_cropped
+				friction_sd10_cropped_log[] = log(friction_sd10_cropped_log[])
 				r = spreadRate_sd10_cropped; r[(!is.na(r[]))&(r[]>1)] = 1
 				spreadRate_sd10_truncated = r
-				pdf(paste0("Outbreak_results/",datasets[h],".pdf"), width=10.0, height=4.6)
-				par(mfrow=c(2,2), mar=c(0.0,0.0,0.0,0.4), oma=c(0.4,0.0,0.6,1.6), mgp=c(0,0.4,0), lwd=0.2, bty="o")
-				cols1 = rev(colorRampPalette(brewer.pal(11,"RdYlBu"))(141)[21:121])
-				cols2 = rev(colorRampPalette(brewer.pal(11,"RdYlGn"))(181)[21:121])
-				colsP = cols1[(((data1[,"days"]-min(data1[,"days"]))/(max(data1[,"days"])-min(data1[,"days"])))*100)+1]
-				plot(polyExtent, ann=F, axes=F, col=NA, border=NA)
-				plot(popDensity_008_log, col=colorRampPalette(brewer.pal(9,"Greys"))(17)[2:10], box=F, axes=F, legend=F, add=T)
-				plot(international_polygons, add=T, lwd=0.2, col=NA, border="gray30", lty=1)
-				for (i in dim(data1)[1]:1)
+				if (extent_choice == 1)
 					{
-						points(data1[i,c("longitude","latitude")], pch=16, cex=0.5, col=colsP[i])
-						points(data1[i,c("longitude","latitude")], pch=1, cex=0.5, col="gray30", lwd=0.2)
+						pdf(paste0("Outbreak_results/",datasets[h],"a_NEW.pdf"), width=10.0, height=4.6)
+						par(mfrow=c(2,2), mar=c(0.0,0.0,0.0,0.4), oma=c(0.4,0.0,0.6,1.6), mgp=c(0,0.4,0), lwd=0.2, bty="o", col="gray30")
+						cols1 = rev(colorRampPalette(brewer.pal(11,"RdYlBu"))(141)[21:121])
+						cols2 = rev(colorRampPalette(brewer.pal(11,"RdYlGn"))(181)[21:121])
+						colsP = cols1[(((data1[,"days"]-min(data1[,"days"]))/(max(data1[,"days"])-min(data1[,"days"])))*100)+1]
+						plot(polyExtent, ann=F, axes=F, col=NA, border=NA)
+						plot(popDensity_008_log, col=colorRampPalette(brewer.pal(9,"Greys"))(17)[2:10], box=F, axes=F, legend=F, add=T)
+						plot(international_polygons, add=T, lwd=0.2, col=NA, border="gray30", lty=1)
+						for (i in dim(data1)[1]:1)
+							{
+								points(data1[i,c("longitude","latitude")], pch=16, cex=0.5, col=colsP[i])
+								points(data1[i,c("longitude","latitude")], pch=1, cex=0.5, col="gray30", lwd=0.2)
+							}
+						mtext("1. First invasion times", side=3, line=-11.2, at=80, cex=0.7, font=1, col="gray30")
+						mtext("(all, in days)", side=3, line=-12.0, at=80, cex=0.7, font=1, col="gray30")
+						rect(xmin(template), ymin(template), xmax(template), ymax(template), xpd=T, lwd=0.4, border="gray30")
+						legendRast = raster(as.matrix(seq(0,max(data1[,"days"]),1)))
+						plot(legendRast, legend.only=T, col=cols1, legend.width=0.5, legend.shrink=0.3, smallplot=c(0.945,0.955,0.040,0.960),
+						     alpha=1, legend.args=list(text="", cex=0.5, line=0.5, col="gray30"), axis.args=list(cex.axis=0.6, lwd=0,
+						     lwd.tick=0.2, tck=-0.8, col.axis="gray30", line=0, mgp=c(0,0.40,0)))
+						colsP = cols1[(((data2[,"days"]-min(data2[,"days"]))/(max(data2[,"days"])-min(data2[,"days"])))*100)+1]
+						plot(polyExtent, ann=F, axes=F, col=NA, border=NA)
+						plot(popDensity_008_log, col=colorRampPalette(brewer.pal(9,"Greys"))(17)[2:10], box=F, axes=F, legend=F, add=T)
+						plot(international_polygons, add=T, lwd=0.2, col=NA, border="gray30", lty=1)
+						for (i in dim(data2)[1]:1)
+							{
+								points(data2[i,c("longitude","latitude")], pch=16, cex=0.5, col=colsP[i])
+								points(data2[i,c("longitude","latitude")], pch=1, cex=0.5, col="gray30", lwd=0.2)
+							}
+						mtext("2. First invasion times", side=3, line=-11.2, at=80, cex=0.7, font=1, col="gray30")
+						mtext("(filtered, in days)", side=3, line=-12.0, at=80, cex=0.7, font=1, col="gray30")
+						rect(xmin(template), ymin(template), xmax(template), ymax(template), xpd=T, lwd=0.4, border="gray30")
+						legendRast = raster(as.matrix(seq(0,max(data2[,"days"]),1)))
+						plot(legendRast, legend.only=T, col=cols1, legend.width=0.5, legend.shrink=0.3, smallplot=c(0.945,0.955,0.040,0.960),
+						     alpha=1, legend.args=list(text="", cex=0.5, line=0.5, col="gray30"), axis.args=list(cex.axis=0.6, lwd=0,
+						     lwd.tick=0.2, tck=-0.8, col.axis="gray30", line=0, mgp=c(0,0.40,0)))
+						plot(polyExtent, ann=F, axes=F, col=NA, border=NA)
+						plot(popDensity_008_log, col=colorRampPalette(brewer.pal(9,"Greys"))(17)[2:10], box=F, axes=F, legend=F, add=T)
+						plot(tps_mask_cropped, col=cols1, colNA=NA, legend=F, add=T)
+						plot(international_polygons, add=T, lwd=0.2, col=NA, border="gray30", lty=1)
+						points(data2[,c("longitude","latitude")], pch=3, cex=0.4, lwd=0.4, col="gray30")
+						mtext("3. First invasion times", side=3, line=-11.2, at=80, cex=0.7, font=1, col="gray30")
+						mtext("(interpolated, in days)", side=3, line=-12.0, at=80, cex=0.7, font=1, col="gray30")
+						rect(xmin(template), ymin(template), xmax(template), ymax(template), xpd=T, lwd=0.4, border="gray30")
+						plot(tps_mask_cropped, legend.only=T, add=T, col=cols1, legend.width=0.5, legend.shrink=0.3, smallplot=c(0.945,0.955,0.040,0.960),
+						     alpha=1, legend.args=list(text="", cex=0.5, line=0.5, col="gray30"), axis.args=list(cex.axis=0.6, lwd=0,
+						     lwd.tick=0.2, tck=-0.8, col.axis="gray30", line=0, mgp=c(0,0.40,0)))
+						plot(polyExtent, ann=F, axes=F, col=NA, border=NA)
+						plot(popDensity_008_log, col=colorRampPalette(brewer.pal(9,"Greys"))(17)[2:10], box=F, axes=F, legend=F, add=T)
+						plot(friction_sd10_cropped, col=cols1, colNA=NA, legend=F, add=T)
+						plot(international_polygons, add=T, lwd=0.2, col=NA, border="gray30", lty=1)
+						points(data2[,c("longitude","latitude")], pch=3, cex=0.4, lwd=0.4, col="gray30")
+						mtext("4. Friction map", side=3, line=-11.2, at=80, cex=0.7, font=1, col="gray30")
+						rect(xmin(template), ymin(template), xmax(template), ymax(template), xpd=T, lwd=0.4, border="gray30")
+						plot(friction_sd10_cropped, legend.only=T, add=T, col=cols1, legend.width=0.5, legend.shrink=0.3, smallplot=c(0.945,0.955,0.040,0.960), 
+						     alpha=1, legend.args=list(text="", cex=0.5, line=0.5, col="gray30"), axis.args=list(cex.axis=0.6, lwd=0,
+						     lwd.tick=0.2, tck=-0.8, col.axis="gray30", line=0, mgp=c(0,0.40,0)))
+						dev.off()
 					}
-				mtext("1. First invasion times", side=3, line=-11.2, at=80, cex=0.7, font=1, col="gray30")
-				mtext("(all, in days)", side=3, line=-12.0, at=80, cex=0.7, font=1, col="gray30")
-				rect(xmin(template), ymin(template), xmax(template), ymax(template), xpd=T, lwd=0.2, border="gray30")
-				legendRast = raster(as.matrix(seq(0,max(data1[,"days"]),1)))
-				plot(legendRast, legend.only=T, col=cols1, legend.width=0.5, legend.shrink=0.3, smallplot=c(0.945,0.955,0.040,0.960),
-				     alpha=1, legend.args=list(text="", cex=0.5, line=0.5, col="gray30"), axis.args=list(cex.axis=0.6, lwd=0,
-				     lwd.tick=0.2, tck=-0.8, col.axis="gray30", line=0, mgp=c(0,0.40,0)))
-				colsP = cols1[(((data2[,"days"]-min(data2[,"days"]))/(max(data2[,"days"])-min(data2[,"days"])))*100)+1]
-				plot(polyExtent, ann=F, axes=F, col=NA, border=NA)
-				plot(popDensity_008_log, col=colorRampPalette(brewer.pal(9,"Greys"))(17)[2:10], box=F, axes=F, legend=F, add=T)
-				plot(international_polygons, add=T, lwd=0.2, col=NA, border="gray30", lty=1)
-				for (i in dim(data2)[1]:1)
-					{
-						points(data2[i,c("longitude","latitude")], pch=16, cex=0.5, col=colsP[i])
-						points(data2[i,c("longitude","latitude")], pch=1, cex=0.5, col="gray30", lwd=0.2)
+				if (extent_choice == 2)
+					{				
+						pdf(paste0("Outbreak_results/",datasets[h],"b_NEW.pdf"), width=9.0, height=6.9)
+						par(mfrow=c(2,2), mar=c(0.0,0.0,0.0,0.4), oma=c(0.7,0.0,0.7,1.6), mgp=c(0,0.4,0), lwd=0.4, bty="o", col="gray30", col.axis="gray30")
+						cols1 = rev(colorRampPalette(brewer.pal(11,"RdYlBu"))(141)[21:121])
+						cols2 = rev(colorRampPalette(brewer.pal(11,"RdYlGn"))(181)[21:121])
+						colsP = cols1[(((data1[,"days"]-min(data1[,"days"]))/(max(data1[,"days"])-min(data1[,"days"])))*100)+1]
+						plot(polyExtent, ann=F, axes=F, col=NA, border=NA)
+						plot(popDensity_008_log, col=colorRampPalette(brewer.pal(9,"Greys"))(17)[2:10], box=F, axes=F, legend=F, add=T)
+						plot(international_polygons, add=T, lwd=0.2, col=NA, border="gray30", lty=1)
+						for (i in dim(data1)[1]:1)
+							{
+								points(data1[i,c("longitude","latitude")], pch=16, cex=0.7, col=colsP[i])
+								points(data1[i,c("longitude","latitude")], pch=1, cex=0.7, col="gray30", lwd=0.4)
+							}
+						mtext("1. First invasion times", side=3, line=-17.5, at=-17, cex=0.75, font=1, col="gray30", adj=0)
+						mtext("    (all, in days)", side=3, line=-18.3, at=-17, cex=0.75, font=8, col="gray30", adj=0)
+						rect(xmin(template), ymin(template), xmax(template), ymax(template), xpd=T, lwd=0.4, border="gray30")
+						legendRast = raster(as.matrix(seq(0,max(data1[,"days"]),1)))
+						plot(legendRast, legend.only=T, col=cols1, legend.width=0.5, legend.shrink=0.3, smallplot=c(0.936,0.946,0.037,0.963),
+						     alpha=1, legend.args=list(text="", cex=0.5, line=0.5, col="gray30"), axis.args=list(cex.axis=0.7,
+						     lwd=0, lwd.tick=0.4, tck=-0.8, col="gray30", col.tick="gray30", col.axis="gray30", line=0, mgp=c(0,0.40,0)))
+						colsP = cols1[(((data2[,"days"]-min(data2[,"days"]))/(max(data2[,"days"])-min(data2[,"days"])))*100)+1]
+						plot(polyExtent, ann=F, axes=F, col=NA, border=NA)
+						plot(popDensity_008_log, col=colorRampPalette(brewer.pal(9,"Greys"))(17)[2:10], box=F, axes=F, legend=F, add=T)
+						plot(international_polygons, add=T, lwd=0.2, col=NA, border="gray30", lty=1)
+						for (i in dim(data2)[1]:1)
+							{
+								points(data2[i,c("longitude","latitude")], pch=16, cex=0.7, col=colsP[i])
+								points(data2[i,c("longitude","latitude")], pch=1, cex=0.7, col="gray30", lwd=0.4)
+							}
+						mtext("2. First invasion times", side=3, line=-17.5, at=-17, cex=0.75, font=1, col="gray30", adj=0)
+						mtext("    (filtered, in days)", side=3, line=-18.3, at=-17, cex=0.75, font=8, col="gray30", adj=0)
+						rect(xmin(template), ymin(template), xmax(template), ymax(template), xpd=T, lwd=0.4, border="gray30")
+						legendRast = raster(as.matrix(seq(0,max(data2[,"days"]),1)))
+						plot(legendRast, legend.only=T, col=cols1, legend.width=0.5, legend.shrink=0.3, smallplot=c(0.936,0.946,0.037,0.963),
+						     alpha=1, legend.args=list(text="", cex=0.5, line=0.5, col="gray30"), axis.args=list(cex.axis=0.7,
+						     lwd=0, lwd.tick=0.4, tck=-0.8, col="gray30", col.tick="gray30", col.axis="gray30", line=0, mgp=c(0,0.40,0)))
+						plot(polyExtent, ann=F, axes=F, col=NA, border=NA)
+						plot(popDensity_008_log, col=colorRampPalette(brewer.pal(9,"Greys"))(17)[2:10], box=F, axes=F, legend=F, add=T)
+						plot(tps_mask_cropped, col=cols1, colNA=NA, legend=F, add=T)
+						plot(international_polygons, add=T, lwd=0.2, col=NA, border="gray30", lty=1)
+						points(data2[,c("longitude","latitude")], pch=3, cex=0.6, lwd=0.5, col="gray30")
+						mtext("3. First invasion times", side=3, line=-17.5, at=-17, cex=0.75, font=1, col="gray30", adj=0)
+						mtext("    (interpolated, in days)", side=3, line=-18.3, at=-17, cex=0.75, font=8, col="gray30", adj=0)
+						rect(xmin(template), ymin(template), xmax(template), ymax(template), xpd=T, lwd=0.4, border="gray30")
+						plot(legendRast, legend.only=T, col=cols1, legend.width=0.5, legend.shrink=0.3, smallplot=c(0.936,0.946,0.037,0.963),
+						     alpha=1, legend.args=list(text="", cex=0.5, line=0.5, col="gray30"), axis.args=list(cex.axis=0.7,
+						     lwd=0, lwd.tick=0.4, tck=-0.8, col="gray30", col.tick="gray30", col.axis="gray30", line=0, mgp=c(0,0.40,0)))
+						plot(polyExtent, ann=F, axes=F, col=NA, border=NA)
+						plot(popDensity_008_log, col=colorRampPalette(brewer.pal(9,"Greys"))(17)[2:10], box=F, axes=F, legend=F, add=T)
+						plot(friction_sd10_cropped_log, col=cols1, colNA=NA, legend=F, add=T)
+						plot(international_polygons, add=T, lwd=0.2, col=NA, border="gray30", lty=1)
+						points(data2[,c("longitude","latitude")], pch=3, cex=0.6, lwd=0.5, col="gray30")
+						mtext("4. Friction map", side=3, line=-17.5, at=-17, cex=0.75, font=1, col="gray30", adj=0)
+						mtext("    (log-transformed)", side=3, line=-18.3, at=-17, cex=0.75, font=8, col="gray30", adj=0)
+						rect(xmin(template), ymin(template), xmax(template), ymax(template), xpd=T, lwd=0.4, border="gray30")
+						plot(friction_sd10_cropped_log, legend.only=T, add=T, col=cols1, legend.width=0.5, legend.shrink=0.3, smallplot=c(0.936,0.946,0.037,0.963),
+						     alpha=1, legend.args=list(text="", cex=0.5, line=0.5, col="gray30"), axis.args=list(cex.axis=0.7,
+						     lwd=0, lwd.tick=0.4, tck=-0.8, col="gray30", col.tick="gray30", col.axis="gray30", line=0, mgp=c(0,0.40,0)))
+						dev.off()
 					}
-				mtext("2. First invasion times", side=3, line=-11.2, at=80, cex=0.7, font=1, col="gray30")
-				mtext("(filtered, in days)", side=3, line=-12.0, at=80, cex=0.7, font=1, col="gray30")
-				rect(xmin(template), ymin(template), xmax(template), ymax(template), xpd=T, lwd=0.2, border="gray30")
-				legendRast = raster(as.matrix(seq(0,max(data2[,"days"]),1)))
-				plot(legendRast, legend.only=T, col=cols1, legend.width=0.5, legend.shrink=0.3, smallplot=c(0.945,0.955,0.040,0.960),
-				     alpha=1, legend.args=list(text="", cex=0.5, line=0.5, col="gray30"), axis.args=list(cex.axis=0.6, lwd=0,
-				     lwd.tick=0.2, tck=-0.8, col.axis="gray30", line=0, mgp=c(0,0.40,0)))
-				plot(polyExtent, ann=F, axes=F, col=NA, border=NA)
-				plot(popDensity_008_log, col=colorRampPalette(brewer.pal(9,"Greys"))(17)[2:10], box=F, axes=F, legend=F, add=T)
-				plot(tps_mask_cropped, col=cols1, colNA=NA, legend=F, add=T)
-				plot(international_polygons, add=T, lwd=0.2, col=NA, border="gray30", lty=1)
-				points(data2[,c("longitude","latitude")], pch=3, cex=0.4, lwd=0.4, col="gray30")
-				mtext("3. First invasion times", side=3, line=-11.2, at=80, cex=0.7, font=1, col="gray30")
-				mtext("(interpolated, in days)", side=3, line=-12.0, at=80, cex=0.7, font=1, col="gray30")
-				rect(xmin(template), ymin(template), xmax(template), ymax(template), xpd=T, lwd=0.2, border="gray30")
-				plot(tps_mask_cropped, legend.only=T, add=T, col=cols1, legend.width=0.5, legend.shrink=0.3, smallplot=c(0.945,0.955,0.040,0.960),
-				     alpha=1, legend.args=list(text="", cex=0.5, line=0.5, col="gray30"), axis.args=list(cex.axis=0.6, lwd=0,
-				     lwd.tick=0.2, tck=-0.8, col.axis="gray30", line=0, mgp=c(0,0.40,0)))
-				plot(polyExtent, ann=F, axes=F, col=NA, border=NA)
-				plot(popDensity_008_log, col=colorRampPalette(brewer.pal(9,"Greys"))(17)[2:10], box=F, axes=F, legend=F, add=T)
-				plot(friction_sd10_cropped, col=cols1, colNA=NA, legend=F, add=T)
-				plot(international_polygons, add=T, lwd=0.2, col=NA, border="gray30", lty=1)
-				points(data2[,c("longitude","latitude")], pch=3, cex=0.4, lwd=0.4, col="gray30")
-				mtext("4. Friction map", side=3, line=-11.2, at=80, cex=0.7, font=1, col="gray30")
-				rect(xmin(template), ymin(template), xmax(template), ymax(template), xpd=T, lwd=0.2, border="gray30")
-				plot(friction_sd10_cropped, legend.only=T, add=T, col=cols1, legend.width=0.5, legend.shrink=0.3, smallplot=c(0.945,0.955,0.040,0.960), 
-				     alpha=1, legend.args=list(text="", cex=0.5, line=0.5, col="gray30"), axis.args=list(cex.axis=0.6, lwd=0,
-				     lwd.tick=0.2, tck=-0.8, col.axis="gray30", line=0, mgp=c(0,0.40,0)))
-				dev.off()
 			}
 	}
 	
 # 3. Investigating the impact of environmental factors on the dispersal
 
-source("circuitscapeFct.r")
-environmentalExtraction = function(segments, rasters, resistances, pathModels, ID="obs")
+source("circuitscape_1.r"); source("circuitscape_2.r")
+environmentalExtraction = function(segments, rasters, resistances, pathModels, ID="obs", julia=F)
 	{
 		if (!is.list(rasters)) nberOfColumns = length(pathModels)
 		if (is.list(rasters)) nberOfColumns = length(pathModels)*length(rasters)
@@ -446,8 +511,14 @@ environmentalExtraction = function(segments, rasters, resistances, pathModels, I
 									{
 										writeRaster(rasters[[j]], paste0(rasterName,".asc"), overwrite=T, showWarnings=F)
 									}
-								circuitscapeFct(rasters[[j]], rasterName, resistances[j], resistances[j], 
-												fourCells=F, fromCoor, toCoor, OS="Unix", rasterName, ID)
+								if (julia == FALSE)
+									{
+										circuitscape_1(rasters[[j]], rasterName, resistances[j], resistances[j], 
+													   fourCells=F, fromCoor, toCoor, OS="Unix", rasterName, ID)
+									}	else	{
+										circuitscape_2(rasters[[j]], rasterName, resistances[j], resistances[j], 
+													   fourCells=F, fromCoor, toCoor, OS="Unix", rasterName, ID)										
+									}
 							}
 						for (j in 1:length(rasters))
 							{
@@ -502,7 +573,8 @@ for (k in kS)
 		c = c + 1
 		if (!file.exists(paste0("Prepared_rasters/Population_density_log_C_k",k,".tif")))
 			{
-				r = popDensity; r[!is.na(r[])] = 1+(k*(r[!is.na(r[])]))
+				r = popDensity; vO = r[!is.na(r[])]; vMax = max(vO)
+				vF = 1+((vO/vMax)*k); r[!is.na(r[])] = vF
 				names(r) = paste0("Population_density_log_C_k",k)
 				writeRaster(r, paste0("Prepared_rasters/Population_density_log_C_k",k,".tif"))
 			}	else	{
@@ -516,7 +588,8 @@ for (k in kS)
 		c = c + 1
 		if (!file.exists(paste0("Prepared_rasters/Friction_R_k",k,".tif")))
 			{
-				r = friction; r[!is.na(r[])] = 1+(k*(r[!is.na(r[])]))
+				r = friction; vO = r[!is.na(r[])]; vMax = max(vO)
+				vF = 1+((vO/vMax)*k); r[!is.na(r[])] = vF
 				names(r) = paste0("Friction_R_k",k)
 				writeRaster(r, paste0("Prepared_rasters/Friction_R_k",k,".tif"))
 			}	else	{
@@ -615,14 +688,17 @@ for (h in 1:length(datasets))
 	
 	# 3.2. Analysing the impact of factors on the wavefront dispersal velocity
 
-nberOfRandomisations = 100; pathModels = c(3); pathModel = "CS"; nberOfCores = 10; registerDoMC(cores=nberOfCores)
+nberOfRandomisations = 100; pathModels = c(3); pathModel = "CS"; nberOfCores = 1; registerDoMC(cores=nberOfCores)
 for (h in 1:length(datasets))
 	{
 		data1 = read.csv(paste0("Outbreak_results/",datasets[h],".csv"), head=T)
 		data2 = read.csv(paste0("Outbreak_results/",datasets[h],"_dir/Data_KDE_95.csv"), head=T)
-		segments_obs = read.csv(paste0("Outbreak_results/",datasets[h],"_dir/Obs_segments.csv")); ID = "obs"
-		extractions_obs = environmentalExtraction(segments_obs, rasters, resistances, pathModels, ID)
-		write.csv(extractions_obs, paste0("Outbreak_results/",datasets[h],"_dir/Obs_extraction.csv"), row.names=F, quote=F)
+		segments_obs = read.csv(paste0("Outbreak_results/",datasets[h],"_dir/Obs_segments.csv")); ID = "obs"; julia = TRUE
+		if (!file.exists(paste0("Outbreak_results/",datasets[h],"_dir/Obs_extraction.csv")))
+			{
+				extractions_obs = environmentalExtraction(segments_obs, rasters, resistances, pathModels, ID, julia)
+				write.csv(extractions_obs, paste0("Outbreak_results/",datasets[h],"_dir/Obs_extraction.csv"), row.names=F, quote=F)
+			}
 		extractions_obs = read.csv(paste0("Outbreak_results/",datasets[h],"_dir/Obs_extraction.csv"), head=T)
 		rasters_to_select = c(1)
 		for (i in 2:length(rasters))
@@ -645,16 +721,44 @@ for (h in 1:length(datasets))
 		buffer = foreach(i = 1:nberOfRandomisations) %dopar% {
 		# for (i in 1:nberOfRandomisations) {
 				segments_ran = as.matrix(read.csv(paste0("Outbreak_results/",datasets[h],"_dir/All_ran_segments/Ran_segments_",i,".csv"), head=T))
-				extractions_ran = environmentalExtraction(segments_ran, rasters_selected, resistances_selected, pathModels, ID=paste0("ran",i))
+				extractions_ran = environmentalExtraction(segments_ran, rasters_selected, resistances_selected, pathModels, ID=paste0("ran",i), julia)
 				write.csv(extractions_ran, paste0("Outbreak_results/",datasets[h],"_dir/All_ran_segments/Ran_extraction_",i,".csv"), row.names=F, quote=F)
 				i
 			}
 	}
+excludingNorthernCases = FALSE; focussingOnNigeria = FALSE
+if (focussingOnNigeria) nigeria = readRDS("GADM_NGA.rds")
 Qs_obs_list1 = list(); Qs_ran_list1 = list()
 for (h in 1:length(datasets))
 	{
-		Qs_obs_list2 = list(); Qs_ran_list2 = list(); n = 0
+		Qs_obs_list2 = list(); Qs_ran_list2 = list(); n = 0; vectorsToExclude = c()
 		segments_obs = read.csv(paste0("Outbreak_results/",datasets[h],"_dir/Obs_segments.csv")); ID = "obs"
+		if (excludingNorthernCases)
+			{
+				vectorsToExclude = which(segments_obs[,"y2"]>20)
+			}
+		if (focussingOnNigeria)
+			{
+				vectorsToInclude = c()
+				for (i in 1:dim(segments_obs)[1])
+					{
+						pt_x = segments_obs[i,"x2"]; pt_y = segments_obs[i,"y2"]
+						for (j in 1:length(nigeria@polygons))
+							{
+								for (k in 1:length(nigeria@polygons[[j]]@Polygons))
+									{
+										pol_x = nigeria@polygons[[j]]@Polygons[[k]]@coords[,1]
+										pol_y = nigeria@polygons[[j]]@Polygons[[k]]@coords[,2]
+										if (point.in.polygon(pt_x,pt_y,pol_x,pol_y) == 1)
+											{
+												vectorsToInclude = c(vectorsToInclude, i)
+											}
+									}
+							}
+					}
+				vectorsToInclude = unique(vectorsToInclude); vectorsToInclude = vectorsToInclude[order(vectorsToInclude)]
+				# buffer = 1:dim(segments_obs)[1]; buffer = buffer[-vectorsToInclude]; vectorsToInclude = buffer
+			}
 		for (i in 2:length(rasters))
 			{
 				for (j in 1:length(pathModels))
@@ -666,9 +770,25 @@ for (h in 1:length(datasets))
 						rasterNull = paste0(pathModel,"_Null_raster")
 						rasterName = paste0(pathModel,"_",envVariableName)
 						y = segments_obs[,"d2"]; x = extractions_obs[,rasterNull]
+						if ((h == 1)&(excludingNorthernCases))
+							{
+								y = segments_obs[-vectorsToExclude,"d2"]; x = extractions_obs[-vectorsToExclude,rasterNull]
+							}
+						if (focussingOnNigeria)
+							{
+								y = segments_obs[vectorsToInclude,"d2"]; x = extractions_obs[vectorsToInclude,rasterNull]
+							}
 						LR = lm(as.formula(paste0("y ~ x")))
 						R2_obs_nul = summary(LR)$r.squared
 						y = segments_obs[,"d2"]; x = extractions_obs[,rasterName]
+						if ((h == 1)&(excludingNorthernCases))
+							{
+								y = segments_obs[-vectorsToExclude,"d2"]; x = extractions_obs[-vectorsToExclude,rasterName]
+							}
+						if (focussingOnNigeria)
+							{
+								y = segments_obs[vectorsToInclude,"d2"]; x = extractions_obs[vectorsToInclude,rasterName]
+							}
 						LR = lm(as.formula(paste0("y ~ x")))
 						R2_obs_env = summary(LR)$r.squared
 						Q_obs = R2_obs_env-R2_obs_nul
@@ -682,9 +802,25 @@ for (h in 1:length(datasets))
 										segments_ran = read.csv(paste0("Outbreak_results/",datasets[h],"_dir/All_ran_segments/Ran_segments_",k,".csv"), header=T)
 										extractions_ran = read.csv(paste0("Outbreak_results/",datasets[h],"_dir/All_ran_segments/Ran_extraction_",k,".csv"))
 										y = segments_ran[,"d2"]; x = extractions_ran[,rasterNull]
+										if ((h == 1)&(excludingNorthernCases))
+											{
+												y = segments_ran[-vectorsToExclude,"d2"]; x = extractions_ran[-vectorsToExclude,rasterNull]
+											}
+										if (focussingOnNigeria)
+											{
+												y = segments_ran[vectorsToInclude,"d2"]; x = extractions_ran[vectorsToInclude,rasterNull]
+											}
 										LR = lm(as.formula(paste0("y ~ x")))
 										R2_ran_nul = summary(LR)$r.squared
 										y = segments_ran[,"d2"]; x = extractions_ran[,rasterName]
+										if ((h == 1)&(excludingNorthernCases))
+											{
+												y = segments_ran[-vectorsToExclude,"d2"]; x = extractions_ran[-vectorsToExclude,rasterName]
+											}
+										if (focussingOnNigeria)
+											{
+												y = segments_ran[vectorsToInclude,"d2"]; x = extractions_ran[vectorsToInclude,rasterName]
+											}
 										LR = lm(as.formula(paste0("y ~ x")))
 										R2_ran_env = summary(LR)$r.squared
 										Q_ran = R2_ran_env-R2_ran_nul; Q_rans[k] = Q_ran
@@ -696,197 +832,10 @@ for (h in 1:length(datasets))
 						n = n+1; Qs_obs_list2[[n]] = Q_obs; Qs_ran_list2[[n]] = Q_rans
 					}
 			}
-		saveRDS(Qs_obs_list2, paste0("Outbreak_results/",datasets[h],"_dir/Q_obs_values.rds"))
-		saveRDS(Qs_ran_list2, paste0("Outbreak_results/",datasets[h],"_dir/Q_ran_values.rds"))
+		if (excludingNorthernCases == FALSE)
+			{
+				saveRDS(Qs_obs_list2, paste0("Outbreak_results/",datasets[h],"_dir/Q_obs_values.rds"))
+				saveRDS(Qs_ran_list2, paste0("Outbreak_results/",datasets[h],"_dir/Q_ran_values.rds"))
+			}
 		Qs_obs_list1[[h]] = Qs_obs_list2; Qs_ran_list1[[h]] = Qs_ran_list2
 	}
-
-	# 3.3. Analysis of the impact of barriers on the dispersal frequency
-
-countingCrossingBarrierEvents = function(segments, shapefiles)
-	{
-		I = which(segments[,"d1"]==0)[1]
-		crossingBarrierEvents = matrix(nrow=dim(segments)[1], ncol=length(shapefiles))
-		if (showingPlots == TRUE)
-			{
-				pdf(paste0("TEMP.pdf")); plot(shapefiles[[1]], lwd=0.5, col="gray30")
-			}
-		for (i in 1:dim(segments)[1])
-			{
-				point1 = segments[I,c("x1","y1")]; names(point1) = c("x","y")
-				point2 = segments[i,c("x2","y2")]; names(point2) = c("x","y")
-				points = rbind(point1,point2); linesList = list()
-				linesList[[1]] = Lines(list(Line(points)),1)
-				spatialLine = SpatialLines(linesList)
-				crs(spatialLine) = crs(shapefiles[[1]])
-				for (j in 1:length(shapefiles))
-					{
-						crossingBarrierEvent = 0
-						intersections = gIntersection(shapefiles[[j]], spatialLine)
-						crossingBarrierEvent = length(intersections)
-						if (!is.null(intersections)) crossingBarrierEvent = 1
-						crossingBarrierEvents[i,j] = crossingBarrierEvent
-						if ((showingPlots == TRUE)&(crossingBarrierEvent>0))
-							{
-								lines(spatialLine, col="red", lwd=0.5)
-							}
-						if ((showingPlots == TRUE)&(crossingBarrierEvent==0))
-							{
-								lines(spatialLine, col="green3", lwd=0.2)
-							}
-					}
-			}
-		if (showingPlots == TRUE) dev.off()
-		return(crossingBarrierEvents)
-	}
-Ns_obs_list = list(); Ns_ran_list = list()
-for (h in 1:length(datasets))
-	{
-		data1 = read.csv(paste0("Outbreak_results/",datasets[h],".csv"), head=T)
-		data2 = read.csv(paste0("Outbreak_results/",datasets[h],"_dir/Data_KDE_95.csv"), head=T)
-		segments_obs = read.csv(paste0("Outbreak_results/",datasets[h],"_dir/Obs_segments.csv"))
-		
-		# 3.3.1. Determining the number of edges crossing a barrier
-		
-		shapefiles = list(international_borders)
-		crossingBarriers_obs = countingCrossingBarrierEvents(segments_obs, shapefiles)
-		write.csv(crossingBarriers_obs, paste0("Outbreak_results/",datasets[h],"_dir/Obs_crossings.csv"), row.names=F, quote=F)
-		registerDoMC(10); buffer = list()
-		buffer = foreach(i = 1:nberOfRandomisations) %dopar% {
-		# for (i in 1:nberOfRandomisations) {
-				segments_ran = read.csv(paste0("Outbreak_results/",datasets[h],"_dir/All_ran_segments/Ran_segments_",i,".csv"), header=T)
-				crossingBarriers_ran = countingCrossingBarrierEvents(segments_ran, shapefiles)
-				fileName = paste0("Outbreak_results/",datasets[h],"_dir/All_ran_segments/Ran_crossings_",i,".csv")
-				write.csv(crossingBarriers_ran, fileName, row.names=F, quote=F)
-				i
-			}
-		
-		# 3.3.2. Statistical test to assess the impact of barriers
-		
-		Ns_ran = list()
-		crossingBarriers_obs = read.csv(paste0("Outbreak_results/",datasets[h],"_dir/Obs_crossings.csv"), head=T)
-		counters = rep(0, dim(crossingBarriers_obs)[2])
-		observed_Ns = matrix(nrow=1, ncol=dim(crossingBarriers_obs)[2])
-		randomised_Ns = matrix(nrow=nberOfRandomisations, ncol=dim(crossingBarriers_obs)[2])
-		colnames(observed_Ns) = colnames(crossingBarriers_obs)
-		colnames(randomised_Ns) = colnames(crossingBarriers_obs)
-		for (i in 1:nberOfRandomisations)
-			{
-				crossingBarriers_ran = read.csv(paste0("Outbreak_results/",datasets[h],"_dir/All_ran_segments/Ran_crossings_",i,".csv"), header=T)
-				for (j in 1:dim(crossingBarriers_obs)[2])
-					{
-						N_obs = sum(crossingBarriers_obs[,j]); observed_Ns[1,j] = N_obs
-						N_ran = sum(crossingBarriers_ran[,j]); randomised_Ns[i,j] = N_ran
-						if (N_ran <= N_obs) counters[j] = counters[j] + 1
-					}
-			}
-		pValue = t(counters/nberOfRandomisations)
-		cat(datasets[[h]]," - International_borders, p-value = ",pValue,"\n",sep="")
-		saveRDS(observed_Ns, paste0("Outbreak_results/",datasets[h],"_dir/N_obs_values.rds"))
-		saveRDS(randomised_Ns, paste0("Outbreak_results/",datasets[h],"_dir/N_ran_values.rds"))
-		Ns_obs_list[[h]] = observed_Ns; Ns_ran_list[[h]] = randomised_Ns
-		if (showingPlots == TRUE)
-			{
-				par(oma=c(0,0,0,0), mar=c(5,5,4,2))
-				plot(density(randomised_Ns), ylab="density", xlab="N", main=datasets[h], cex.main=1, cex.lab=1)
-				abline(v=observed_Ns, col="red")
-			}
-	}
-
-	# 3.4. Analysis of the impact of local immunity on the dispersal location
-	
-sumOfImmunityAtEndLocations = function(segments, shapefile, immunityValues, startingDate)
-	{
-		Is = rep(NA, dim(segments)[1]); pointsWithoutAdmin2 = c(); savingTemporaryFile = FALSE
-		for (i in 1:dim(segments)[1])
-			{
-				pt.x = segments[i,"x2"]; pt.y = segments[i,"y2"]; indices1 = c()
-				for (j in 1:length(shapefile@polygons))
-					{
-						for (k in 1:length(shapefile@polygons[[j]]@Polygons))
-							{
-								pol.x = shapefile@polygons[[j]]@Polygons[[k]]@coords[,1]
-								pol.y = shapefile@polygons[[j]]@Polygons[[k]]@coords[,2]
-								if (point.in.polygon(pt.x,pt.y,pol.x,pol.y) == 1)
-									{
-										indices1 = c(indices1, j)
-									}
-							}
-					}
-				if (length(indices1) != 1)
-					{
-						cat(paste0("    ",i,", length of indices1 = ",length(indices1)),"\n",sep="")
-						if (length(indices1) == 0)
-							{
-								pointsWithoutAdmin2 = rbind(pointsWithoutAdmin2, cbind(pt.x, pt.y))
-							}
-					}	else	{
-						admin2_code = shapefile@data[indices1,"ADM2_CODE"]
-						date = decimal_date(date_decimal(startingDate)+days(segments[i,"dt"]))
-						indices2 = which((immunityValues[,"admin2_code"]==admin2_code)&(date>=immunityValues[,"startMonth"])&(date<immunityValues[,"endMonth"]))
-						if (length(indices2) != 1)
-							{
-								cat(paste0("    ",i,", length of indices2 = ",length(indices2)),"\n",sep="")
-							}	else	{
-								Is[i] = immunityValues[indices2,"immunity"]
-							}
-					}
-			}
-		if ((savingTemporaryFile)&(!is.null(pointsWithoutAdmin2)))
-			{
-				pdf(paste0("TEMP.pdf"), width=5, height=2.3)
-				par(mfrow=c(1,1), mar=c(0.0,0.0,0.0,0.4), oma=c(0.4,0.0,0.6,1.6), mgp=c(0,0.4,0), lwd=0.2, bty="o")
-				plot(polyExtent, ann=F, axes=F, col=NA, border=NA)
-				plot(popDensity_008_log, col=colorRampPalette(brewer.pal(9,"Greys"))(17)[2:10], box=F, axes=F, legend=F, add=T)
-				plot(international_polygons, add=T, lwd=0.2, col=NA, border="gray30", lty=1)
-				points(pointsWithoutAdmin2, cex=0.3, pch=16, col="red"); points(pointsWithoutAdmin2, cex=0.3, pch=1, lwd=0.3, col="gray30")
-				rect(xmin(template), ymin(template), xmax(template), ymax(template), xpd=T, lwd=0.2, border="gray30")
-				dev.off()
-			}
-		if (!is.null(pointsWithoutAdmin2)) cat("    Warning: ",dim(pointsWithoutAdmin2)[1]," ending points without an admin-2 match\n",sep="")
-		I = mean(Is[!is.na(Is[])])
-		return(I)
-	}
-Is_obs_list = list(); Is_ran_list = list()
-for (h in 1:length(datasets))
-	{
-		data1 = read.csv(paste0("Outbreak_results/",datasets[h],".csv"), head=T)
-		data2 = read.csv(paste0("Outbreak_results/",datasets[h],"_dir/Data_KDE_95.csv"), head=T)
-		segments_obs = read.csv(paste0("Outbreak_results/",datasets[h],"_dir/Obs_segments.csv"))
-		
-		# 3.4.1. Computing the sum of immunity values at the end location of all segments
-		
-		shapefile = shapefile("Africa_adm2_shp/Africa_admin2.shp")
-		immunityValues = read.csv("SimImmunity.csv", head=T) # @Darlan: to be edited with your CSV file containing real immunity estimates
-		startMonths = as.POSIXct(paste0(immunityValues[,"date"],"-01 00:00")); endMonths = startMonths+months(1)
-		startEndMonths = cbind(decimal_date(startMonths), decimal_date(endMonths))
-		colnames(startEndMonths) = c("startMonth","endMonth"); immunityValues = cbind(immunityValues, startEndMonths)
-		startingDate = data1[which(data1[,"collection_date"]==min(data1[,"collection_date"])),"collection_date"]
-		I_obs = sumOfImmunityAtEndLocations(segments_obs, shapefile, immunityValues, startingDate)
-		registerDoMC(10); Is_ran = rep(NA, nberOfRandomisations); buffer = list()
-		buffer = foreach(i = 1:nberOfRandomisations) %dopar% {
-		# for (i in 1:nberOfRandomisations) {
-				segments_ran = read.csv(paste0("Outbreak_results/",datasets[h],"_dir/All_ran_segments/Ran_segments_",i,".csv"), header=T)
-				sumOfImmunityAtEndLocations_ran = sumOfImmunityAtEndLocations(segments_ran, shapefile, immunityValues, startingDate)
-				sumOfImmunityAtEndLocations_ran
-			}
-		for (i in 1:length(buffer)) Is_ran[i] = buffer[[i]]
-		
-		# 3.4.2. Statistical test to assess the impact of immunity values at ending locations
-		
-		counter = 0
-		for (i in 1:nberOfRandomisations)
-			{
-				if (I_obs <= Is_ran[i]) counter = counter + 1
-			}
-		pValue = counter/nberOfRandomisations
-		cat(datasets[[h]]," - Impact of immunity (I stat test), p-value = ",pValue,"\n",sep="")
-		Is_obs_list[[h]] = I_obs; Is_ran_list[[h]] = Is_ran
-		if (showingPlots == TRUE)
-			{
-				par(oma=c(0,0,0,0), mar=c(5,5,4,2))
-				plot(density(Is_ran), ylab="density", xlab="N", main=datasets[h], cex.main=1, cex.lab=1)
-				abline(v=I_obs, col="red")
-			}
-	}
-
