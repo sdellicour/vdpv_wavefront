@@ -40,11 +40,11 @@ for (h in 1:length(datasets))
 extent1 = extent(-30,140,-28,50); extent_choice = 1
 extent2 = extent(-20,35,-7,38); extent_choice = 2
 template = crop(raster("Template_rast.tif"), extent2)
-cellSurfaces = crop(raster("WordPop_1000m/WorldPop_1km.tif"), extent2)
+cellSurfaces = raster("WordPop_1000m.tif")
 cell_size = sqrt(cellSurfaces) # cell heights (or widths) in meters
 popDensity_008 = crop(raster("Human_popD.tif"), extent2)
 	# NOTE: the "Human_popD.tif" file is too heavy for GitHub and is available on request
-	# or can be retrieved from the WorldPop website (https://hub.worldpop.org/geodata/summary?id=29692)
+	# or can be retrieved from the WorldPop website (https://hub.worldpop.org/geodata/summary?id=24777)
 popDensity_008_log = popDensity_008; popDensity_008_log[] = log(popDensity_008_log[]+1)
 popDensity_08 = raster::aggregate(popDensity_008, 10, fun=sum)
 popDensity_08_log = popDensity_08; popDensity_08_log[] = log(popDensity_08_log[]+1)
