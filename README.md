@@ -10,6 +10,6 @@ Abstract: Outbreaks of vaccine-derived poliovirus type 2 (cVDPV2) have become a 
 
 3. Some raster files were too large to be deposited in this GitHub repo. This is the case for the rasters used for testing the impact of covariates on the wavefront velocity, but these files can be found as follows:
 
-- the "friction" raster (friction to human movement) can be retrieved from [Weiss et al.](https://www.nature.com/articles/nature25181) (2018, *Nature*), moved to the main folder, and renamed as "Friction_2015.tif" before running the script.
+- the "friction" raster (friction to human movement) can be retrieved from [Weiss et al. (2018, *Nature*)](https://www.nature.com/articles/nature25181), moved to the main folder, and renamed as "Friction_2015.tif" before running the script.
 
 - the population density raster can be downloaded from the [WorldPop](https://hub.worldpop.org/geodata/summary?id=24777) website, moved to the main folder, and renamed as "Human_popD.tif" before running the script.
